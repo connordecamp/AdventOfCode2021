@@ -45,38 +45,64 @@ unsigned countOverlappingLines(const std::vector<Line>& lines)
     maxX++;
     maxY++;
 
-    std::cout << "Board is size " << maxX << " by " << maxY << '\n';
-
     std::vector<std::vector<int>> grid(maxY, std::vector<int>(maxX, 0));
 
     for(const auto& line : lines) {
-        bool isHorizontal {line.start.y == line.stop.y};
-        bool isVertical {line.start.x == line.stop.x};
+    
+        // Find slope, avoid division
+        int dy {line.stop.y - line.start.y};
+        int dx {line.stop.x - line.start.x};
 
-        if((line.stop.x - line.start.x) != 0) {
-            // Find slope, avoid division
-            int dy = line.stop.y - line.start.y;
-            int dx = line.stop.x - line.start.x;
+        bool slopeIsOne {dx == dy};
+        bool slopeIsNegativeOne {dx == -dy || -dx == dy};
+        bool slopeIsZero {dy == 0};
+        bool slopeIsUndefined {dx == 0};
 
-            if(dy == dx) {
-                // slope = 1
+        if(slopeIsOne) {
 
-                // Would prefer to go up and to the right, so choose point
-                // closer to origin?
-
-            }  
-            else if(-dy == dx || -dx == dy) {
-
-                // We know to go down and left
-                int x = line.start.x;
-                int y = line.start.y;
-
-                
+            // Prefer leftmost point
+            Point start {line.start};
+            Point end {line.stop};
+            if(line.stop.x < line.start.x){
+                start = line.stop;
+                end = line.start;
             }
-        }
-        
 
-        if(isHorizontal) {
+            int x {start.x};
+            int y {start.y};
+
+            while(x <= end.x && y <= end.y) {
+                grid[y][x]++;
+                x++;
+                y++;
+            }
+
+            assert(x > end.x && y > end.y);
+        }  
+        else if(slopeIsNegativeOne) {
+
+            // We know to go down and right
+            // Prefer leftmost point
+            Point start {line.start};
+            Point end {line.stop};
+            if(line.stop.x < line.start.x){
+                start = line.stop;
+                end = line.start;
+            }
+
+            int x {start.x};
+            int y {start.y};
+
+            while(x <= end.x && y >= end.y) {
+                grid[y][x]++;
+                x++;
+                y--;
+            }
+
+            assert(x > end.x && y < end.y);
+            
+        }
+        else if(slopeIsZero) {
             int start = std::min(line.start.x, line.stop.x);
             int end = std::max(line.start.x, line.stop.x);
 
@@ -84,7 +110,7 @@ unsigned countOverlappingLines(const std::vector<Line>& lines)
                 grid[line.start.y][i]++;
             }
         }
-        else if(isVertical){
+        else if(slopeIsUndefined){
             int start = std::min(line.start.y, line.stop.y);
             int end = std::max(line.start.y, line.stop.y);
 
@@ -98,11 +124,9 @@ unsigned countOverlappingLines(const std::vector<Line>& lines)
 
     for(const auto& row : grid) {
         for(int val : row) {
-            //std::cout << val << ' ';
             if(val >= 2) 
                 overlappingLineCount++;
         }
-        //std::cout << '\n';
     }
 
     return overlappingLineCount;
