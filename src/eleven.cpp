@@ -13,9 +13,8 @@ void incrementAllEnergyLevels(std::vector<std::vector<int>>& energyLevels)
     }
 }
 
-int flash(
+void flash(
     std::vector<std::vector<int>>& energyLevels,
-    std::map<std::pair<size_t, size_t>, bool>& flashed, 
     size_t i, 
     size_t j)
 {
@@ -27,12 +26,7 @@ int flash(
     };    
 
     if(!isValidIndex(i, j))
-        return 0;
-
-    if(flashed[{i, j}]) return 0;
-    flashed[{i, j}] = true;
-    energyLevels[i][j] = 0;
-    unsigned numFlashes {1};
+        return;
 
     const short Directions[8][2] {
         {-1, 0},
@@ -45,6 +39,7 @@ int flash(
         {1, 1}
     };
 
+    energyLevels[i][j] = 0;
 
     for(const auto& dir : Directions) {
         size_t newI {i + dir[0]};
@@ -52,15 +47,8 @@ int flash(
 
         if(isValidIndex(newI, newJ)) {
             energyLevels[newI][newJ]++;
-            
-            std::pair<size_t, size_t> index {newI, newJ};
-            if(!flashed[index] && energyLevels[newI][newJ] >= 10) {
-                numFlashes += flash(energyLevels, flashed, newI, newJ);
-            }
         }
     }
-
-    return numFlashes;
 }
 
 int main(int argc, char** argv)
@@ -75,6 +63,7 @@ int main(int argc, char** argv)
     std::ifstream infile(argv[1]);
     std::string line;
     std::vector<std::vector<int>> energyLevels;
+    unsigned numOctopus {0};
 
     while(!infile.eof()) {
         std::getline(infile, line);
@@ -83,9 +72,21 @@ int main(int argc, char** argv)
         for(char c : line) {
             energy.push_back(c - '0');
         }
+        numOctopus += energy.size();
         energyLevels.push_back(std::move(energy));
     }
     
+    auto printMatrix = [](std::vector<std::vector<int>>& vec) {
+        for(auto row : vec) {
+            for(auto num : row) {
+                std::cout << num;
+            }
+            std::cout << '\n';
+        }
+        std::cout << '\n';
+    };
+    //printMatrix(energyLevels);
+
     // Increment all energy levels by 1
     // while a 10 is in matrix
     //  Iterate through matrix
@@ -96,37 +97,55 @@ int main(int argc, char** argv)
     constexpr unsigned EnergyLevelToFlash {10};
     uint64_t totalFlashes {0};
 
-    auto printMatrix = [](std::vector<std::vector<int>>& vec) {
-        for(auto row : vec) {
-            for(auto num : row) {
-                std::cout << num;
-            }
-            std::cout << '\n';
-        }
-        std::cout << '\n';
-    };
 
-    printMatrix(energyLevels);
-
-    for(size_t i = 0; i < numSteps; i++) {
-        bool keepSearching {false};
+    typedef std::pair<size_t, size_t> PairIndex;
+    for(size_t step = 0; step < numSteps; step++) {
         incrementAllEnergyLevels(energyLevels);
 
-        std::map<std::pair<size_t, size_t>, bool> flashed;
-        do {
+        std::vector<PairIndex> cellsToFlash;
+        std::set<PairIndex> cellsFlashed;
+        
+        bool keepSearching {true};
+        unsigned flashesThisStep {0};
+
+        unsigned firstStepWhereAllFlashed {0};
+
+        while(keepSearching) {
             keepSearching = false;
             for(size_t i = 0; i < energyLevels.size(); i++) {
-                for(size_t j = 0; j < energyLevels[i].size(); j++) {
-                    if(energyLevels[i][j] >= EnergyLevelToFlash) {
+                for(size_t j = 0; j < energyLevels.size(); j++) {
+                    bool shouldFlash {energyLevels[i][j] >= EnergyLevelToFlash};
+                    bool hasFlashedBefore {cellsFlashed.find({i, j}) != cellsFlashed.end()};
+
+                    if(!hasFlashedBefore && shouldFlash) {
+                        cellsToFlash.push_back({i, j});
                         keepSearching = true;
-                        totalFlashes += flash(energyLevels, flashed, i, j);
                     }
                 }
             }
 
-        }while(keepSearching);
+            for(const auto& pair : cellsToFlash) {
+                cellsFlashed.insert(pair);
+                flash(energyLevels, pair.first, pair.second);
+                flashesThisStep++;
+            }
 
-        printMatrix(energyLevels);
+            cellsToFlash.clear();
+        }
+        
+        if(flashesThisStep == numOctopus) {
+            firstStepWhereAllFlashed = step;
+            std::cout << "First step where all jellyfish flashed: " << firstStepWhereAllFlashed + 1 << '\n';
+            return 0;
+        }
+
+        totalFlashes += flashesThisStep;
+
+        for(const auto& pair : cellsFlashed) {
+            energyLevels[pair.first][pair.second] = 0;
+        }
+
+        //printMatrix(energyLevels);
     }
 
     std::cout << "Flashes after " << numSteps << " steps: " << totalFlashes << '\n';
