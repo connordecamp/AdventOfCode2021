@@ -13,7 +13,11 @@ void incrementAllEnergyLevels(std::vector<std::vector<int>>& energyLevels)
     }
 }
 
-void flash(std::vector<std::vector<int>>& energyLevels, size_t i, size_t j)
+int flash(
+    std::vector<std::vector<int>>& energyLevels,
+    std::map<std::pair<size_t, size_t>, bool>& flashed, 
+    size_t i, 
+    size_t j)
 {
     auto isValidIndex = [&energyLevels](size_t i, size_t j){
         bool rowValid {i >= 0 && i < energyLevels.size()};
@@ -21,6 +25,14 @@ void flash(std::vector<std::vector<int>>& energyLevels, size_t i, size_t j)
 
         return rowValid && colValid;
     };    
+
+    if(!isValidIndex(i, j))
+        return 0;
+
+    if(flashed[{i, j}]) return 0;
+    flashed[{i, j}] = true;
+    energyLevels[i][j] = 0;
+    unsigned numFlashes {1};
 
     const short Directions[8][2] {
         {-1, 0},
@@ -33,17 +45,22 @@ void flash(std::vector<std::vector<int>>& energyLevels, size_t i, size_t j)
         {1, 1}
     };
 
+
     for(const auto& dir : Directions) {
         size_t newI {i + dir[0]};
         size_t newJ {j + dir[1]};
 
         if(isValidIndex(newI, newJ)) {
             energyLevels[newI][newJ]++;
-            if(energyLevels[newI][newJ] >= 10) {
-                flash(energyLevels, newI, newJ);
+            
+            std::pair<size_t, size_t> index {newI, newJ};
+            if(!flashed[index] && energyLevels[newI][newJ] >= 10) {
+                numFlashes += flash(energyLevels, flashed, newI, newJ);
             }
         }
     }
+
+    return numFlashes;
 }
 
 int main(int argc, char** argv)
@@ -79,41 +96,37 @@ int main(int argc, char** argv)
     constexpr unsigned EnergyLevelToFlash {10};
     uint64_t totalFlashes {0};
 
-    for(auto row : energyLevels) {
-        for(auto num : row) {
-            std::cout << num;
-        }
-        std::cout << '\n';
-    }
-    std::cout << '\n';
-
-    for(size_t i = 0; i < numSteps; i++) {
-        bool foundTen {false};
-        incrementAllEnergyLevels(energyLevels);
-
-        do {
-            foundTen = false;
-
-            for(size_t i = 0; i < energyLevels.size(); i++) {
-                for(size_t j = 0; j < energyLevels[i].size(); j++) {
-                    if(energyLevels[i][j] >= EnergyLevelToFlash) {
-                        foundTen = true;
-                        flash(energyLevels, i, j);
-                        totalFlashes++;
-                        energyLevels[i][j] = 0;
-                    }
-                }
-            }
-
-        }while(foundTen);
-
-        for(auto row : energyLevels) {
+    auto printMatrix = [](std::vector<std::vector<int>>& vec) {
+        for(auto row : vec) {
             for(auto num : row) {
                 std::cout << num;
             }
             std::cout << '\n';
         }
         std::cout << '\n';
+    };
+
+    printMatrix(energyLevels);
+
+    for(size_t i = 0; i < numSteps; i++) {
+        bool keepSearching {false};
+        incrementAllEnergyLevels(energyLevels);
+
+        std::map<std::pair<size_t, size_t>, bool> flashed;
+        do {
+            keepSearching = false;
+            for(size_t i = 0; i < energyLevels.size(); i++) {
+                for(size_t j = 0; j < energyLevels[i].size(); j++) {
+                    if(energyLevels[i][j] >= EnergyLevelToFlash) {
+                        keepSearching = true;
+                        totalFlashes += flash(energyLevels, flashed, i, j);
+                    }
+                }
+            }
+
+        }while(keepSearching);
+
+        printMatrix(energyLevels);
     }
 
     std::cout << "Flashes after " << numSteps << " steps: " << totalFlashes << '\n';

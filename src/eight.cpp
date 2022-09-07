@@ -2,12 +2,36 @@
 
 bool isSubset(const std::string& s1, const std::string& s2) 
 {
+    size_t s1Len {s1.length()};
+    size_t s2Len {s2.length()};
     // Returns true if s1 is a subset of s2
-    if(s1.length() > s2.length())
+    if(s1Len > s2Len)
         return false;
     
+    // If the strings are the same length, sort and return comparison
+    if(s1Len == s2Len) {
+        std::sort(s1.begin(), s1.end());
+        std::sort(s2.begin(), s2.end());
 
+        return s1 == s2;
+    }
 
+    // Otherwise, see if all characters in s1 are found in s2
+    
+    std::unordered_map<char, unsigned> s2Frequency;
+    for(const char c : s2) {
+        s2Frequency[c]++;
+    }
+
+    for(auto c : s1) {
+        s2Frequency[c]--;
+
+        if(s2Frequency[c] < 0) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 int main(int argc, char** argv)
@@ -50,7 +74,6 @@ int main(int argc, char** argv)
      * Number 4 uses four segments - the two vertical from number 1, a horizontal
      * middle segment, and the left vertical segment
      *      
-     * 
      * Number 8 uses all seven segments. It at least tells us which 2 are possibly
      * the bottom left and bottom middle
      *     
