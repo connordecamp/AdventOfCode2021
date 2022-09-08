@@ -5,8 +5,8 @@
 #include <bits/stdc++.h>
 
 enum class FoldType {
-    Horizontal,
-    Vertical
+    BottomUp,
+    RightLeft
 };
 
 struct Fold {
@@ -43,29 +43,16 @@ void foldBottomHalfUp(std::vector<std::vector<char>>& board, const Fold& fold)
 
     int upper = fold.value - 1;
     int lower = fold.value + 1;
-    // std::cout << '\n';
-
-    auto printRow = [](const std::vector<char>& row) {
-        for(auto c : row)
-            std::cout << c;
-        std::cout << '\n';
-    };
 
     while(upper >= 0 && lower < board.size()) {
-        // std::cout << "Upper = " << upper << '\n';
-        // std::cout << "Lower = " << lower << '\n';
-        // std::cout << '\n';
-        // printRow(board[upper]);
-        // printRow(board[lower]);
-        // std::cout << '\n';
-        // std::cout << '\n';
-        // std::cout << '\n';
 
         for(size_t i = 0; i < board[upper].size(); i++) {
             char upperChar = board[upper][i];
             char lowerChar = board[lower][i];
 
-            if(upperChar != lowerChar) {
+            bool topOrBottomHasDot = (upperChar != lowerChar);
+
+            if(topOrBottomHasDot) {
                 board[upper][i] = '#';
             }
 
@@ -82,15 +69,17 @@ void foldRightHalfLeft(std::vector<std::vector<char>>& board, const Fold& fold)
 
     while(left >= 0 && right < board[0].size()) {
 
-        std::cout << left << ' ' << right << '\n';
-
         for(size_t i = 0; i < board.size(); i++) {
-            char upperChar = board[i][left];
-            char lowerChar = board[i][right];
+            char leftChar = board[i][left];
+            char rightChar = board[i][right];
 
-            if(upperChar != lowerChar) {
+            // Characters can only be # or .
+            // If they are not equal, one must be #
+            // which will always be seen after folding
+            bool leftOrRightHasDot = (leftChar != rightChar);
+
+            if(leftOrRightHasDot)
                 board[i][left] = '#';
-            }
 
         }
         left--;
@@ -139,14 +128,14 @@ int main(int argc, char** argv)
             bool isHorizontalLine = (yIndex != std::string::npos);
 
             if(isHorizontalLine)
-                folds.push_back(Fold(value, FoldType::Horizontal));
+                folds.push_back(Fold(value, FoldType::BottomUp));
             else 
-                folds.push_back(Fold(value, FoldType::Vertical));
+                folds.push_back(Fold(value, FoldType::RightLeft));
         }
 
     }
 
-    std::cout << "Number of dots: " << orderedPairs.size() << '\n';
+    std::cout << "Initial number of dots: " << orderedPairs.size() << '\n';
     
     auto pairWithHighestXValue = std::max_element(
         orderedPairs.begin(), 
@@ -174,42 +163,38 @@ int main(int argc, char** argv)
     // This is a range of (maxX + 1, maxY + 1)
     std::vector<std::vector<char>> board(
         highestYValue + 1, 
-        std::vector<char>(highestXValue + 1, Empty));
+        std::vector<char>(highestXValue + 1, Empty)
+    );
 
     for(const Pair& p : orderedPairs) {
         board[p.second][p.first] = Dot;
     }
 
-    //printMatrix(board);
+    for(const Fold& fold : folds)  {
 
-    // Folding algorithm
-    
-    Fold firstFold {folds[0]};
-    if(firstFold.foldType == FoldType::Horizontal) {
-        std::cout << "Folding along y=" << firstFold.value << '\n';
-        foldBottomHalfUp(board, firstFold);
+        if(fold.foldType == FoldType::BottomUp) {
+            std::cout << "Folding along y=" << fold.value << '\n';
+            foldBottomHalfUp(board, fold);
 
-        for(size_t i = firstFold.value + 1; i < board.size(); i++) {
-            for(size_t j = 0; j < board[i].size(); j++) {
-                board[i][j] = '!';
-            }
+            // Bottom half was folded up, so remove those
+            // rows from the board
+            board.resize(fold.value);
         }
-    }
-    else {
-        std::cout << "Folding along x=" << firstFold.value << '\n';
-        foldRightHalfLeft(board, firstFold);
+        else {
+            std::cout << "Folding along x=" << fold.value << '\n';
+            foldRightHalfLeft(board, fold);
 
-        for(size_t i = 0; i < board.size(); i++) {
-            for(size_t j = firstFold.value + 1; j < board[i].size(); j++) {
-                board[i][j] = '!';
+            // Right half was folded to the left, so remove the
+            // extra columns from the board
+            for(size_t i = 0; i < board.size(); i++) {
+                board[i].resize(fold.value);
             }
         }
     }
 
     unsigned numDots = 0;
     
-    
-    //printMatrix(board);
+    printMatrix(board);
 
     for(const auto& row : board) {
         for(const auto& c : row) {
@@ -218,7 +203,7 @@ int main(int argc, char** argv)
             }
         }
     }
-    std::cout << "Number of dots after first fold: " << numDots << '\n';
+    std::cout << "Number of dots after folding: " << numDots << '\n';
 
     return 0;
 }
