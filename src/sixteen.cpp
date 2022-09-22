@@ -4,9 +4,29 @@
 
 #include <bits/stdc++.h>
 
-void parse(std::vector<uint8_t>& bits);
+struct Packet {
+    uint8_t version = 0;
+    uint8_t type = 0;
+    
+    bool isLiteral = false;
+    uint64_t literal = 0;
 
-int versionSum = 0;
+    std::vector<Packet> subpackets {};
+};
+
+uint64_t traversePacketTree(Packet* head) {
+    if(!head) return 0;
+
+    uint64_t answer = head->version;
+
+    for(size_t i = 0; i < head->subpackets.size(); i++) {
+        answer += traversePacketTree(&head->subpackets[i]);
+    }
+
+    return answer;
+}
+
+Packet parse(std::vector<uint8_t>& bits);
 
 std::string bytesToBitString(const std::vector<unsigned char>& bytes)
 {
@@ -38,6 +58,7 @@ std::string bytesToBitString(const std::vector<unsigned char>& bytes)
 
     return answer.str();
 }
+
 
 enum PacketType {
     Literal = 4,
@@ -83,39 +104,52 @@ uint64_t parseLiteral(std::vector<uint8_t>& bits)
     return result;
 }
 
-void parseOperator(std::vector<uint8_t>& bits)
+std::vector<Packet> parseOperator(std::vector<uint8_t>& bits)
 {
     int lengthType = parseNBits(bits, 1);
 
     bool shouldReadFifteenBits = (lengthType == 0);
     bool shouldReadElevenBits = (lengthType == 1);
 
-    if(shouldReadFifteenBits) {
-        int number = parseNBits(bits, 15);
-        parse(bits);
+    std::vector<Packet> subpackets;
 
+    if(shouldReadFifteenBits) {
+        size_t lengthOfAllSubpackets = parseNBits(bits, 15);
+        size_t startingPosition = bits.size();
+
+        // (Starting position - current bit vector size) gives us how
+        // many bits were processed from the top-level parse() call
+        // Keep processing subpackets until we reach the given length
+
+        while((startingPosition - bits.size()) < lengthOfAllSubpackets)
+            subpackets.push_back(parse(bits));
+        
     }
     else if(shouldReadElevenBits) {
         int number = parseNBits(bits, 11);
-        for(size_t i = 0; i < number; i++)
-            parse(bits);
+        for(int i = 0; i < number; i++)
+            subpackets.push_back(parse(bits));
     }
 
+    return subpackets;
 }
 
-void parse(std::vector<uint8_t>& bits)
+Packet parse(std::vector<uint8_t>& bits)
 {
-    int versionNumber = parseNBits(bits, 3);
-    versionSum += versionNumber;
-    int packetType = parseNBits(bits, 3);
+    Packet p;
+    p.version = parseNBits(bits, 3);
+    p.type = parseNBits(bits, 3);
     
-    if(packetType == PacketType::Literal) {
-        uint64_t number = parseLiteral(bits);
-        std::cout << "Literal: " << +number << '\n';
+    if(p.type == PacketType::Literal) {
+        p.isLiteral = true;
+        p.literal = parseLiteral(bits);
     }else {
-        std::cout << "Operator\n";
-        parseOperator(bits);
+        std::vector<Packet> subpackets;
+        subpackets = parseOperator(bits);
+        p.subpackets = std::move(subpackets);
     }
+
+    return p;
 }
 
 int main(int argc, char** argv)
@@ -128,6 +162,11 @@ int main(int argc, char** argv)
 
     std::ifstream infile(argv[1], std::ios::binary);
     const std::vector<unsigned char> buffer(std::istreambuf_iterator<char>(infile), {});
+
+    for(unsigned char c : buffer)
+        std::cout << c;
+    std::cout << '\n';
+
     std::string bitString {bytesToBitString(buffer)};
     std::reverse(bitString.begin(), bitString.end());
 
@@ -136,12 +175,10 @@ int main(int argc, char** argv)
         bits.push_back(c - '0');
     }
 
-    while(bits.size() > 6)
-        parse(bits);
+    Packet head;
+    head = parse(bits);
 
-    std::cout << "Version sum = " << versionSum << '\n';
-
-    
+    std::cout << "Version sum: " << traversePacketTree(&head) << '\n';
 
     return 0;
 }
